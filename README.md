@@ -273,3 +273,7 @@ The gap between label definition and decision boundary is: the definitions were 
 **What I changed:** Claude flagged posts #4 and #15 as potentially mislabeled (comparison label that could reasonably be discussion). I manually re-read both posts and agreed they were borderline, so I added a note in planning.md identifying them as labeling ambiguities rather than model failures. I also verified the other 13 examples manually to confirm the patterns were real before including them in this report.
 
 **Annotation note:** No AI assistance was used during the annotation process. All 200+ posts were labeled manually.
+
+## Demo
+
+- [Unlisted Demo Video Link](https://youtu.be/2SWgNX_WG3U)
