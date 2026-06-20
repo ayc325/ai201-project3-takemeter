@@ -40,7 +40,7 @@
 - **Source:** r/kpopthoughts subreddit, collected manually from public posts
 - **Target size:** 200 posts, aiming for a 25% split across all four labels
 - **Labeling process:** All posts were labeled manually with no AI pre-labeling. Each post was read in full (title + body) and assigned a single label based on body intent rather than surface features like title format.
-- **Actual distribution (200) total:** discussion: 98 (49%), comparison: 41 (21%), appreciation: 40 (20%), news: 21 (11%). Discussion dominated despite targeting a 25% split — the community's natural posting pattern skews heavily toward opinion and debate. News was the hardest to collect, ending up at roughly half the target frequency.
+- **Actual distribution (200) total:** discussion: 94 (47%), comparison: 44 (22%), appreciation: 40 (20%), news: 22 (11%). Discussion dominated despite targeting a 25% split — the community's natural posting pattern skews heavily toward opinion and debate. News was the hardest to collect, ending up at roughly half the target frequency.
 - **Imbalance handling:** Discussion dominated natural sampling. When a label was underrepresented, additional posts were targeted for that label. When a label was overrepresented, examples were trimmed to keep counts closer to the target split.
 
 ---
@@ -109,30 +109,30 @@ Per-class recall is tracked separately to catch cases where a label is being sys
 
 | Model | Accuracy | Macro F1 |
 | --- | --- | --- |
-| Baseline (zero-shot) | 0.70 (30/30 parseable) | 0.64 |
-| Fine-tuned | 0.53 (36 examples) | 0.18 |
+| Baseline (zero-shot) | 0.667 (30/30 parseable) | 0.66 |
+| Fine-tuned | 0.467 (30 examples) | 0.16 |
 
-The fine-tuned model performs significantly worse than the baseline. This is a regression caused by the model collapsing nearly all predictions into "discussion."
+The fine-tuned model performs significantly worse than the baseline. This is a regression caused by the model collapsing all predictions into "discussion."
 
 ### Per-Class Metrics — Baseline
 
 | Label | Precision | Recall | F1 | Support |
 | --- | --- | --- | --- | --- |
-| news | 0.67 | 0.67 | 0.67 | 3 |
-| discussion | 0.65 | 0.87 | 0.74 | 15 |
-| appreciation | 1.00 | 0.83 | 0.91 | 6 |
-| comparison | 0.50 | 0.17 | 0.25 | 6 |
-| **macro avg** | **0.70** | **0.63** | **0.64** | 30 |
+| news | 0.75 | 0.75 | 0.75 | 4 |
+| discussion | 0.61 | 0.79 | 0.69 | 14 |
+| appreciation | 1.00 | 0.67 | 0.80 | 6 |
+| comparison | 0.50 | 0.33 | 0.40 | 6 |
+| **macro avg** | **0.72** | **0.63** | **0.66** | 30 |
 
 ### Per-Class Metrics — Fine-Tuned
 
 | Label | Precision | Recall | F1 | Support |
 | --- | --- | --- | --- | --- |
-| news | 0.00 | 0.00 | 0.00 | 3 |
-| discussion | 0.59 | 0.90 | 0.72 | 21 |
+| news | 0.00 | 0.00 | 0.00 | 4 |
+| discussion | 0.47 | 1.00 | 0.64 | 14 |
 | appreciation | 0.00 | 0.00 | 0.00 | 6 |
 | comparison | 0.00 | 0.00 | 0.00 | 6 |
-| **macro avg** | **0.15** | **0.23** | **0.18** | 36 |
+| **macro avg** | **0.12** | **0.25** | **0.16** | 30 |
 
 ### Confusion Matrix (Fine-Tuned Model)
 
@@ -140,12 +140,12 @@ Rows = true label, columns = predicted label.
 
 | | Pred: news | Pred: discussion | Pred: appreciation | Pred: comparison |
 | --- | --- | --- | --- | --- |
-| **True: news (3)** | 0 | 3 | 0 | 0 |
-| **True: discussion (21)** | 0 | 19 | 1 | 1 |
+| **True: news (4)** | 0 | 4 | 0 | 0 |
+| **True: discussion (14)** | 0 | 14 | 0 | 0 |
 | **True: appreciation (6)** | 0 | 6 | 0 | 0 |
 | **True: comparison (6)** | 0 | 6 | 0 | 0 |
 
-Every non-discussion post was predicted as "discussion." All confidence scores for wrong predictions were in the 0.28–0.31 range — the model was not confidently wrong, it was uncertain and defaulting to the majority class.
+All 30 posts were predicted as "discussion" — including all 14 correct predictions, which were only correct because they were true discussion posts. The model never predicted any other label. All wrong-prediction confidence scores were in the 0.28–0.29 range — the model was not confidently wrong, it was uncertain and defaulting to the majority class.
 
 ---
 
@@ -153,17 +153,17 @@ Every non-discussion post was predicted as "discussion." All confidence scores f
 
 ### Example 1 — news predicted as discussion
 
-> "Its me by illit got 50 million views in just a month. The mv for the song got 50m views in just a short span of 1 month, I thought that many people hated the song but its one of the fastest growing vi..."
+> "Melon billion clubs (most streamed artists on melon). Melon has diamond (over 10b streams), gold (over 5b), silver (over 2b) and bronze (over 1b) clubs. Bronze club (over 1b streams) consists of 85 artists..."
 
-**True:** news | **Predicted:** discussion | **Confidence:** 0.29
+**True:** news | **Predicted:** discussion | **Confidence:** 0.28
 
-**Which labels are confused?** News → discussion. All 3 news posts in the test set were mispredicted as discussion.
+**Which labels are confused?** News → discussion. All 4 news posts in the test set were mispredicted as discussion.
 
-**Why is the boundary hard?** The title is a factual stat (a milestone view count), which is a clear news signal. But the body immediately shifts into personal surprise — "I thought that many people hated the song" — which mimics the tone of a discussion opener. The content is news; the framing is casual and editorial. The model reads tone, not content type.
+**Why is the boundary hard?** The post is a structured data table — exactly the format used in clearly-labeled news posts like the Spotify streaming chart. There is no opinion, no question, no editorial framing. This is a labeling data problem: the model was not confidently wrong (0.28 confidence), it simply could not distinguish "shares a data table" from "discussion" at all — the majority-class collapse erased any signal for news regardless of how unambiguous the post was.
 
-**Is this a labeling or data problem?** The label is consistent — this post is reporting a fact, not asking for opinions. The problem is in the training data: news examples in the fine-tuning set likely skewed toward formal, data-heavy posts (stats tables, charts), leaving the model without signal for informally-written news posts.
+**Is this a labeling or data problem?** The label is consistent. This is purely a training problem: with only ~15 news examples in the training set (7.5% of 140), the model had insufficient signal to learn the news class boundary, and collapsed to discussion under uncertainty.
 
-**What would fix it?** Adding fine-tuning examples of news posts written in casual first-person voice would teach the model that tone and content can diverge. The system prompt's news definition should also clarify: "A news post is defined by what it reports, not how the author reacts to it."
+**What would fix it?** Collecting more news examples during annotation to bring the news class closer to 25% of training data. A weighted loss function that penalizes misclassifying minority classes more heavily would also help the model not ignore low-frequency labels entirely.
 
 ---
 
@@ -173,7 +173,7 @@ Every non-discussion post was predicted as "discussion." All confidence scores f
 
 **True:** news | **Predicted:** discussion | **Confidence:** 0.30
 
-**Which labels are confused?** News → discussion again. Same directional error as Example 1, confirming this is a systematic pattern, not a one-off.
+**Which labels are confused?** News → discussion again. All 4 news posts in the test set were mispredicted as discussion — same directional error, confirming this is a systematic pattern, not a one-off.
 
 **Why is the boundary hard?** "Actually" and "Color me shocked" are strong surprise markers. The post is reporting an event (a group changed their live performance in response to criticism), but the reaction framing sounds like someone setting up a debate. The defining feature — that this is reporting something that happened — gets buried under editorial voice.
 
@@ -205,11 +205,11 @@ Posts run through the fine-tuned model with predicted label and confidence score
 
 | Post (truncated) | True Label | Predicted | Confidence | Correct? |
 | --- | --- | --- | --- | --- |
-| "Why has TREASURE's growth seemed to stall despite being from YG? Do you think it was hiatuses, YG's management, or something else?" | discussion | discussion | 0.62 | ✓ |
-| "BTS's comeback has made me rethink how I viewed the kpop landscape during their hiatus" | discussion | discussion | 0.58 | ✓ |
-| "I wish YG would give BABYMONSTER better choreography — they're being misused" | discussion | discussion | 0.55 | ✓ |
-| "Its me by illit got 50 million views in just a month — I thought people hated this song" | news | discussion | 0.29 | ✗ |
-| "How did Jhope improve his near perfect dancing? Random gushing for dancing in 'Killin' it Girl'" | appreciation | discussion | 0.30 | ✗ |
+| "Why has TREASURE's growth seemed to stall despite being from YG? Do you think it was hiatuses, YG's management, or something else?" | discussion | discussion | ~0.60 | ✓ |
+| "BTS's comeback has made me rethink how I viewed the kpop landscape during their hiatus" | discussion | discussion | ~0.55 | ✓ |
+| "I wish YG would give BABYMONSTER better choreography — they're being misused" | discussion | discussion | ~0.55 | ✓ |
+| "Melon billion clubs (most streamed artists on melon). Melon has diamond, gold, silver and bronze clubs..." | news | discussion | 0.28 | ✗ |
+| "How did Jhope improve his near perfect dancing? Random gushing for dancing in 'Killin' it Girl'" | appreciation | discussion | 0.28 | ✗ |
 
 **Why the TREASURE prediction is reasonable:** The post opens with a direct question about a group's trajectory, the body provides analytical context (6 years active, only 4 music show wins, outpaced by peers), and it explicitly invites input from both fans and non-fans. The question title, personal analytical framing, and multi-part debate prompt all align consistently with the discussion label. Confidence of 0.62 is higher than all wrong predictions (0.28–0.31), showing the model is meaningfully more certain when the label signals are consistent across both title and body.
 
