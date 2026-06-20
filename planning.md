@@ -9,7 +9,7 @@ Write a 2–3 sentence description of your community, your labels, and why these
 
 Community: r/kpopthoughts
 Labels: discussion, news, appreciation, comparison
-This distinctions matter to the people in the community because each label provides new fans and people new to the community a place to understand how most of kpop thoughts and opinions are talked about. Discussions will be the most popular as many people want to know what others think about a song/group/agency. News is just another form of promoting a group. Appreciation is praising a group/individual/agency. Comparison is a more analytical lens of discussions but most kpop analyses happen in the form of comparison so it's more accurate of a label.
+This distinctions matter to the people in the community because each label provides new fans and people new to the community a place to understand how most of kpop thoughts and opinions are talked about. Discussions will be the most popular as many people want to know what others think about a song/group/agency. News is just another form of promoting a group. Appreciation is praising a group/individual/agency. Comparison is a more analytical lens of discussions but most kpop analyses happen in the form of comparison so it's more accurate of a label. This community is a good fit for a classification task because the labels are an important factor for the community and to learn more about Kpop for new people in the community. 
 
 ### Identifying Patterns
 
@@ -107,6 +107,7 @@ This distinctions matter to the people in the community because each label provi
       > I hope everyone's enjoying 2:Love and the rest of the b-sides! My favorite definitely has to be Where You At? and Beat My Love!
       >
       > If you haven't checked it out already, the title track is such an fun, synth pop summer song! And the styling is sooooo cute! Hope all my Swith are having a great day!
+
    2. Discussion - asking community for their thoughts, title tends to be in question format
       > Why has TREASURE's growth seemed to stall despite being from YG?
       >
@@ -145,7 +146,7 @@ This distinctions matter to the people in the community because each label provi
       >
       > I really like Iconic by mistake, because how can u get a song with 3 groups in it? Its amazing
       --
-      
+
       > Charting vs Big live crowds, which makes the group more popular and succesful in your eyes
       >
       > Yesterday I saw a fanwar going on between 2 fandoms, going back and forth bragging about their groups achievements
@@ -160,6 +161,7 @@ This distinctions matter to the people in the community because each label provi
       >
       > For the sake of argument, I'm not going to mention the groups so noone has their biased glasses on
       --
+
    4. Appreciation - posts that praise or appreciate a group, person, something that someone is doing.
       > ILLIT's Choreographers deserve a lot of praise
       >
@@ -174,7 +176,8 @@ This distinctions matter to the people in the community because each label provi
       >
       > It's a great song! But also, people always say they want to hear something different from The Black Label and this sounds different to me. Saebi has got to be one of the prettiest girls in Kpop, why isn't she the face of the group?
       --
-   5. Example where LLM could be confused/on the borderline
+
+   5. Hard edge cases: Example where LLM could be confused/on the borderline
       > Do you think there will ever be a Korean act as big as BTS—or even bigger?
       >
       > I'm curious what international fans think about this.
@@ -194,3 +197,92 @@ This distinctions matter to the people in the community because each label provi
       >
       > --
       > This post seems like it could be either an appreciation post or discussion, but it is an appreciation post because it doesn't directly invite the community for discussion but rather explains the fun that the user had of Jennie's performance.
+      >
+      --
+
+      > How much $ did you spend on Kpop in 2025?
+      > Poll closed
+      > 416 votes
+      > Under $100
+      > 182
+      > $100 - $500
+      > 106
+      > $500 - $1000
+      > 48
+      > $1000 - $2000
+      > 24
+      > $2000+
+      > 56
+      > Core contributors
+      > Who are core contributors?
+      > All
+      > Looking at my spending last year, I dropped around $1600, most of which went to concerts. Curious what it's like for others and what the bulk of it was if not on concerts. Cheers.
+      > --
+      > This post seems like a discussion post since it asks the community for how much they spent, but this is actually a comparison post because there are strict options for what the community could choose.
+
+### Data collection plan
+<!-->Data collection plan: Where will you collect examples? How many per label? What will you do if a label is underrepresented after 200 examples?-->
+
+- Collect examples from r/kpopthoughts subreddit
+- Ideally 25% split of posts per label since there are 4 labels.
+- If there is an underrepressentation, then more data will be collected for the underrepresented label and the overweighted label examples will be removed.
+
+### Evaluation Metrics Plan
+<!-->Evaluation metrics: Which metrics will you use to evaluate your model and why are those the right ones for this specific task? (Accuracy alone is not enough — explain what else you need and why.)-->
+
+The primary concern is that "discussion" will likely dominate the dataset even with a targeted 25% split, since it is the most common post type in the community. A model that predicts "discussion" for most posts could still achieve high overall accuracy, making accuracy alone misleading.
+
+Metrics used:
+
+- **Per-class accuracy (recall per class)** — of all posts truly labeled "news", what % did the model correctly identify? This is more intuitive than F1 and shows whether any label is being consistently missed.
+- **Specificity per class** — of all posts that are NOT "appreciation", what % did the model correctly avoid labeling as appreciation? This catches false positives, such as the model over-tagging ambiguous posts as "discussion."
+- **Macro F1** — the average F1 across all 4 classes weighted equally regardless of class size. This is the primary headline metric because it penalizes the model equally for failing on any single label.
+- **Confusion matrix** — shows which classes get mixed up. Based on hard edge cases identified during labeling, discussion ↔ comparison is expected to be the main source of confusion.
+
+Two additional analysis dimensions (not metrics, but useful for interpreting errors):
+
+- **Post length** — does the model perform worse on short, ambiguous posts vs. longer ones? Short posts lack enough context for the model to distinguish labels.
+- **Tone analysis** — each label has a characteristic register: discussions are casual and conversational, news is informational and neutral, appreciation is enthusiastic, and comparison is analytical. When the model misclassifies, checking whether the post's tone matched the typical register of its true label helps explain *why* the error happened (e.g., a casually-written news post getting tagged as discussion).
+
+### Definition of success
+<!-->Definition of success: What performance would make this classifier genuinely useful? What would you accept as "good enough" for deployment in a real community tool?-->
+
+For a community tagging tool to be genuinely useful:
+
+- **Macro F1 ≥ 0.70** is the threshold for "good enough to deploy" — below this, mislabeling is frequent enough to frustrate users or mislead the new community members this tool is meant to help.
+- **No single class recall below 0.55** — if any one label (e.g., "appreciation" or "news") is being largely missed by the model, the classifier is not useful even if the overall number looks acceptable.
+- **Comparison label specifically** — given the documented hard edge case (posts using BTS as a reference point but asking for community opinion), this class is expected to score lower. A per-class recall ≥ 0.60 for comparison would still be considered a meaningful success.
+
+A useful heuristic for acceptable errors: if the model's mistakes are on posts that a human labeler would also be uncertain about (like the Jennie/Govball appreciation vs. discussion case), that is acceptable confusion. If the model is systematically misclassifying posts whose tone clearly signals a label — a casually enthusiastic appreciation post being tagged as discussion, or a stats-heavy news post being tagged as comparison — that points to a fixable problem worth investigating.
+
+## AI Tool Plan
+
+### Label stress testing
+<!-->Give the AI your label definitions and edge case description, and ask it to generate 5–10 posts that sit at the boundary between two labels. If it produces posts you can't classify cleanly, your definitions need tightening — do that now, before you annotate 200 examples.-->
+
+Claude will be given the four label definitions and asked to generate 8–10 synthetic r/kpopthoughts-style posts that sit at the boundary between two specific label pairs:
+
+- **discussion vs. comparison** — posts that use a group or era as a reference point but are really asking for community opinion (the BTS edge case pattern)
+- **appreciation vs. discussion** — posts that praise something but also implicitly invite responses (the Jennie/Govball pattern)
+- **news vs. discussion** — posts that share a stat or event but frame it as a question or prompt debate
+
+If any generated post cannot be cleanly labeled using the current definitions, the definition for that label will be revised before annotation begins. The goal is to surface ambiguity in the label boundaries before it compounds across 200 examples.
+
+### Annotation assistance
+<!-->Decide whether you'll use an LLM to pre-label a batch of examples before reviewing them yourself. If yes, note which tool you'll use and how you'll track which examples were pre-labeled (for disclosure in your AI usage section).-->
+
+No AI use here.
+
+### Failure analysis
+<!-->Plan to give your list of wrong predictions to an AI tool and ask it to identify patterns before you write up your evaluation. Note what you'll look for and how you'll verify the patterns yourself.-->
+
+After evaluation, the list of misclassified posts (true label vs. predicted label) will be passed to Claude with the prompt: "Given these misclassified posts and their correct labels, what patterns do you notice in why the model is getting them wrong?"
+
+Patterns to look for:
+
+- **Tone mismatch** — does the model confuse labels when the post's tone doesn't match the typical register for that label (e.g., a casually-written news post being tagged as discussion)?
+- **Post length** — are most errors on short posts that lack enough context to distinguish labels?
+- **Discussion vs. comparison** — is the model over-predicting "comparison" for discussion posts that mention two groups or use a group as a benchmark?
+- **Appreciation vs. discussion** — is the model misreading enthusiasm or praise as an invitation to discuss?
+
+Each pattern Claude identifies will be verified manually by re-reading 3–5 of the flagged posts to confirm the pattern is real and not a coincidence. Patterns that hold up will be noted in the evaluation write-up as systematic failure modes.
