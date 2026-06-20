@@ -345,4 +345,52 @@ appreciation
 
   Fine-tuning on labeled examples will most improve comparison, since the baseline model has essentially no signal for it. The key distinction to reinforce is that comparison posts explicitly contrast two things (vs, similar to, unlike), while discussion posts ask an open question without a structured contrast. Appreciation should remain strong. The biggest risk is that fine-tuning on a discussion-heavy dataset will make the discussion collapse worse — so balanced class representation in the fine-tuning set is critical.
 
+## Fine Tuning Mistakes
 
+### Reflections on Wrong Predictions
+
+| # | True Label | Predicted | Confidence | Post Title |
+| --- | ----------- | --------- | ---------- | ---------- |
+| 1 | news | discussion | 0.29 | "Its me by illit got 50 million views in just a month" |
+| 2 | news | discussion | 0.30 | "MEOVV actually got rid of their DDI RO RI chorus after all the criticism" |
+| 3 | appreciation | discussion | 0.30 | "How did Jhope improve his near perfect dancing? Random gushing for dancing in 'Killin' it Girl' by J-Hope" |
+
+#### In-depth analysis
+
+##### Mistake #1 — news predicted as discussion
+
+> "Its me by illit got 50 million views in just a month. The mv for the song got 50m views in just a short span of 1 month, I thought that many people hated the song but its one of the fastest growing vi..."
+
+The title reads like a factual stat post (50M views = a milestone number), which is a clear news signal. However, the body contradicts the tone: the poster adds personal surprise ("I thought that many people hated the song"), which sounds like the opener to an invitation for community debate. The model likely latched onto that editorial framing rather than the underlying stat. This is a **news post written in a conversational, discussion-like tone** — exactly the tone mismatch failure mode identified in the evaluation metrics plan.
+
+##### Mistake #2 — news predicted as discussion
+
+> "MEOVV actually got rid of their DDI RO RI chorus after all the criticism. Color me shocked. MEOVV just performed at the special Music Core event hosted by the Ulsan Music Festival, and the entire 'DDI..."
+
+Similar pattern to #1: factual event (a group changed their choreography in response to criticism), but framed with personal reaction ("Color me shocked"). The word "actually" signals surprise and implicitly invites others to react, which mimics discussion framing. The model was not wrong to sense conversational energy here — but the defining feature is that the post is *reporting an event*, not asking for opinions. The casual tone masked the news label.
+
+##### Mistake #3 — appreciation predicted as discussion
+
+> "How did Jhope improve his near perfect dancing? Random gushing for dancing in 'Killin' it Girl' by J-Hope. Ok, I am a huge BTS fan, but not as devoted as my more die hard Army. I have not kept up with..."
+
+The title opens with a question ("How did Jhope improve..."), which is one of the clearest signals the model learned to associate with discussion. But the subtitle ("Random gushing") and the body reveal this is an appreciation post — the question is rhetorical, used to frame a praise post rather than to genuinely solicit answers. This is the appreciation vs. discussion edge case from planning: posts that praise something but open with a question-style title. The model over-relied on the question format as a discussion indicator instead of reading the body's intent.
+
+#### Pattern summary across all 15 mistakes
+
+All 15 wrong predictions were classified as "discussion" — the model has no effective signal for any other label when uncertain. Confidence scores were uniformly low (0.28–0.31), meaning these are not confident wrong answers; the model is genuinely unsure and defaulting to the majority class.
+
+##### Pattern 1 — Question-format titles on non-discussion posts (affects comparison and appreciation)
+
+Posts #3, #4, #9, #10, #13 all have question-style titles but belong to appreciation or comparison. The model over-learned that a question title means discussion. In reality, comparison posts frequently ask questions that frame a structural contrast ("What was more important in 2nd gen that's now the least important?"), and appreciation posts sometimes open rhetorically ("How did Jhope improve his dancing?"). The fix is to teach the model to read the body intent, not just the title format.
+
+##### Pattern 2 — "Thoughts on X?" framing for appreciation (affects appreciation)
+
+Posts #5 and #13 both open with "Thoughts on [song/collab]?" which looks like a discussion invitation. But the bodies are positive reviews with no real debate prompt — they express enjoyment and praise. The "Thoughts on" opener is a surface-level discussion cue that masks appreciation intent. This specific phrase likely appears in the model's training distribution as a discussion signal.
+
+##### Pattern 3 — Personal editorial voice masking news (affects news)
+
+Posts #1, #2, and #6 all report factual data or events but wrap them in personal reaction language: "I thought people hated the song," "Color me shocked," "Take this as a cheatsheet." The factual content (view counts, choreography change, revenue figures) is the defining news feature, but the model reads the casual first-person framing and pattern-matches to discussion. News posts written informally are systematically mislabeled.
+
+##### Borderline cases to flag
+
+Posts #4 ("groups you stopped then restarted stanning") and #15 ("how much did you spend on Kpop") are genuinely ambiguous — they were labeled comparison in the dataset but could reasonably be discussion. If these labels were reassigned, the true error count on comparison would drop from 6 to 4. This is worth noting in the evaluation write-up as a labeling ambiguity, not just a model failure.
