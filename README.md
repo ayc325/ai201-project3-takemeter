@@ -6,7 +6,7 @@
 
 ---
 
-## Label Definitions
+## Label Taxonomy
 
 | Label | Definition |
 | --- | --- |
@@ -15,10 +15,23 @@
 | `comparison` | Explicitly draws parallels or contrasts between two groups, songs, eras, or concepts. Often includes words like *vs*, *similar*, or *compare*. |
 | `appreciation` | Expresses admiration or praise for a group, artist, choreographer, or moment without primarily seeking debate. |
 
-**Hard edge cases identified during labeling:**
+**Examples per label:**
 
-- **Discussion vs. comparison** — posts that use a group as a reference point ("Is anyone as big as BTS?") look like comparison but are really asking for community opinion without a structural contrast. These were labeled as discussion.
-- **Appreciation vs. discussion** — posts that open with "Thoughts on X?" or a rhetorical question but whose bodies are purely positive praise. These were labeled as appreciation based on body intent, not title format.
+*News* — "Most streamed Kpop Groups on Spotify (by total discography streams)" (a data table of streaming numbers with no opinion prompt); "Happy STAYC comeback day today everyone!" (a comeback announcement sharing the title track).
+
+*Discussion* — "Why has TREASURE's growth seemed to stall despite being from YG?" (asks the community to explain a group's trajectory); "Why is it that Love Attack by Rescene is suddenly close to topping the Korean charts?" (asks for community knowledge about a chart phenomenon).
+
+*Comparison* — "Is it me or Iconic by mistake sounds like Bodak Yellow" (draws a musical parallel between two songs); "Charting vs big live crowds, which makes the group more popular and successful in your eyes?" (explicitly pits two success metrics against each other).
+
+*Appreciation* — "ILLIT's Choreographers deserve a lot of praise" (praises the choreography team's formation work with no debate prompt); "Myung Jaehyun is one of the most solid fifth gen aces to the point that it's actually kind of fascinating" (admires an idol's range of skills).
+
+**Difficult-to-label examples and decisions:**
+
+1. **"Do you think there will ever be a Korean act as big as BTS — or even bigger?"** → labeled **discussion**. The phrasing proposes comparison (as big as BTS), but the user is not offering a structural contrast — they are using BTS as a reference point to ask the community for opinions. Without a two-sided comparison in the body, the post functions as a discussion.
+
+2. **"Jennie at Govball was so fun to attend in person"** → labeled **appreciation**. The post could be discussion because it mentions upcoming discourse ("there'll be some random discourse"), but the body does not ask for community input — it describes the user's personal enjoyment. Intent of the body overrides the mention of future debate.
+
+3. **"Happy STAYC comeback day today everyone! I hope everyone's enjoying 2:Love... the title track is such a fun, synth pop summer song! And the styling is sooooo cute!"** → labeled **news**. The post announces a comeback (a factual event) and could easily be appreciation given the enthusiastic, praise-heavy body. It was labeled news because the primary function is promoting/announcing the release — the same role a chart update or streaming stat post serves — not expressing personal admiration for the group itself. The rule applied: if the post's purpose is to inform the community that something happened, it's news, even if the tone is celebratory.
 
 ---
 
@@ -26,22 +39,57 @@
 
 - **Source:** r/kpopthoughts subreddit, collected manually from public posts
 - **Target size:** 200 posts, aiming for a 25% split across all four labels
-- **Actual distribution:** Discussion dominated in practice — r/kpopthoughts is structurally a debate and opinion community, so achieving equal representation required deliberate oversampling of news, appreciation, and comparison posts
-- **Imbalance handling:** When a label was underrepresented, additional posts were collected for that label and overrepresented label examples were trimmed
+- **Labeling process:** All posts were labeled manually with no AI pre-labeling. Each post was read in full (title + body) and assigned a single label based on body intent rather than surface features like title format.
+- **Actual distribution (200) total:** discussion: 98 (49%), comparison: 41 (21%), appreciation: 40 (20%), news: 21 (11%). Discussion dominated despite targeting a 25% split — the community's natural posting pattern skews heavily toward opinion and debate. News was the hardest to collect, ending up at roughly half the target frequency.
+- **Imbalance handling:** Discussion dominated natural sampling. When a label was underrepresented, additional posts were targeted for that label. When a label was overrepresented, examples were trimmed to keep counts closer to the target split.
 
 ---
 
-## Model Design
+## Baseline
 
-**Baseline:** Zero-shot classification using a system prompt that defined all four labels with one example post per label. No fine-tuning. Evaluated on 30 posts.
+The baseline used zero-shot classification with no fine-tuning. The model was given the following system prompt and asked to classify each post with a single label string:
 
-**Fine-tuned model:** The same prompt structure was used as a foundation, then fine-tuned on labeled examples from the dataset. Evaluated on 36 posts.
+```text
+You are classifying posts from r/kpopthoughts.
+Assign each post to exactly one of the following categories.
 
-**System prompt design decisions:**
+news: A post that shares factual information, statistics, or announces an event
+(such as a comeback or chart result) without asking for community opinion.
+Example: "Most streamed Kpop Groups on Spotify — BTS: 52.1B, BLACKPINK: 17.4B..."
 
-- Each label got a one-sentence definition grounded in community function, not just surface features
-- Examples were chosen to represent typical post tone: informational for news, casual and question-driven for discussion, analytical for comparison, enthusiastic for appreciation
-- The valid labels list used exact strings to ensure output matched the classifier's label set
+discussion: A post that poses a question or opinion to the community and invites
+responses or debate. Titles are often phrased as questions.
+Example: "Why has TREASURE's growth seemed to stall despite being from YG?..."
+
+comparison: A post that explicitly draws parallels or contrasts between two groups,
+songs, eras, or concepts. Often includes words like vs, similar, or compare.
+Example: "Charting vs big live crowds — which makes a group more popular?"
+
+appreciation: A post that expresses admiration or praise for a group, artist,
+choreographer, or moment without primarily seeking debate.
+Example: "ILLIT's choreographers deserve a lot of praise..."
+
+Respond with ONLY the label name.
+Do not explain your reasoning.
+
+Valid labels:
+news
+discussion
+comparison
+appreciation
+```
+
+Results were collected by running 30 labeled posts through the classifier and comparing the model's output string to the ground-truth label. Responses that did not exactly match one of the four valid label strings were marked unparseable; all 30 were parseable.
+
+---
+
+## Fine-Tuning Approach
+
+- **Base model:** `distilbert-base-uncased` (DistilBERT with a sequence classification head)
+- **Training setup:** 3 epochs, learning rate 2e-5, train batch size 16, eval batch size 32, weight decay 0.01, 50 warmup steps, max sequence length 256
+- **Train/val/test split:** 70% / 15% / 15%, stratified by label
+- **Hyperparameter decision:** 3 epochs was kept at the notebook default rather than increased. With only ~200 labeled examples, more epochs risk overfitting — the model would memorize the training distribution (which is discussion-heavy) rather than learning generalizable label boundaries. Learning rate was kept at 2e-5, the standard starting point for fine-tuning BERT-family models; lowering it further would have slowed convergence without meaningfully improving stability on this dataset size.
+- **Baseline model:** `llama-3.3-70b-versatile` via Groq API, zero-shot with the same label definitions and examples used in fine-tuning
 
 ---
 
