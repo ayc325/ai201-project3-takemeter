@@ -286,3 +286,63 @@ Patterns to look for:
 - **Appreciation vs. discussion** — is the model misreading enthusiasm or praise as an invitation to discuss?
 
 Each pattern Claude identifies will be verified manually by re-reading 3–5 of the flagged posts to confirm the pattern is real and not a coincidence. Patterns that hold up will be noted in the evaluation write-up as systematic failure modes.
+
+## Classification Prompts
+
+```python
+# ── TODO: Write your classification prompt ────────────────────────────────
+# Your prompt should:
+#   1. Name your community and task
+#   2. Define each label in plain language (copy from your planning.md)
+#   3. Give one example post per label
+#   4. Tell the model to output ONLY the label name — nothing else
+#
+# The model's response must match one of your label strings exactly,
+# or the classify_with_groq() function below will mark it as unparseable.
+#
+# ─────────────────────────────────────────────────────────────────────────
+# REPLACE the placeholders below with your actual prompt. As written, this
+# skeleton will NOT classify correctly — you must fill it in.
+
+SYSTEM_PROMPT = """
+You are classifying posts from r/kpopthoughts.
+Assign each post to exactly one of the following categories.
+
+news: A post that shares factual information, statistics, or announces an event (such as a comeback or chart result) without asking for community opinion.
+Example: "Most streamed Kpop Groups on Spotify (by total discography streams) — BTS: 52.1B, BLACKPINK: 17.4B, Stray Kids: 14.7B..."
+
+discussion: A post that poses a question or opinion to the community and invites responses or debate. Titles are often phrased as questions.
+Example: "Why has TREASURE's growth seemed to stall despite being from YG? Do you think it was the long hiatuses, YG's management, or something else?"
+
+comparison: A post that explicitly draws parallels or contrasts between two groups, songs, eras, or concepts. Often includes words like vs, similar, or compare.
+Example: "Charting vs big live crowds — which makes a group more popular and successful in your eyes?"
+
+appreciation: A post that expresses admiration or praise for a group, artist, choreographer, or moment without primarily seeking debate.
+Example: "ILLIT's choreographers deserve a lot of praise — the way they handle formations and rotating centers is really dynamic and unlike most kpop choreo."
+
+Respond with ONLY the label name.
+Do not explain your reasoning.
+
+Valid labels:
+news
+discussion
+comparison
+appreciation
+"""
+```
+
+### Classification Reflection
+
+- Where did the baseline struggle?
+
+  Comparison was by far the weakest label — F1 of 0.25, with recall of only 0.17, meaning the model correctly identified just 1 out of 6 comparison posts. News was moderate (F1=0.67) but had only 3 test examples, so that result is hard to trust. Appreciation was surprisingly strong (F1=0.91), likely because its language (praise, admiration, no question posed) is distinct enough that the baseline prompt handled it well.
+
+- Are there specific labels it consistently confuses?
+
+  Comparison is almost certainly being collapsed into discussion. Discussion has a high recall of 0.87 but low precision of 0.65, which means it is over-predicting — catching real discussion posts but also incorrectly pulling in posts from other classes. Given that comparison posts often read like discussion posts that happen to mention two things side by side, the baseline model is likely defaulting to discussion whenever it is uncertain. This matches the documented hard edge case (BTS-as-benchmark posts) and the known overlap between the two labels.
+
+- Hypothesis for fine-tuning:
+
+  Fine-tuning on labeled examples will most improve comparison, since the baseline model has essentially no signal for it. The key distinction to reinforce is that comparison posts explicitly contrast two things (vs, similar to, unlike), while discussion posts ask an open question without a structured contrast. Appreciation should remain strong. The biggest risk is that fine-tuning on a discussion-heavy dataset will make the discussion collapse worse — so balanced class representation in the fine-tuning set is critical.
+
+
